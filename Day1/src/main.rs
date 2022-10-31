@@ -20,7 +20,7 @@ fn main() {
     let input = read_input(&path);
 
     part1(&input.as_slice());
-    
+    part2(&input.as_slice());
 }
 
 fn part1(mut input :&[i32]) {
@@ -38,4 +38,28 @@ fn part1(mut input :&[i32]) {
     }
 
     println!("part1 count = {}", count);
+}
+
+fn part2(mut input :&[i32]) {
+
+  
+    let mut win1 = input[0] + input[1] + input[2];
+    let mut win2 = input[1] + input[2] + input[3];
+
+    let mut count = 0i32;
+    if win2 > win1 {
+        count+=1;
+    }
+
+   for i in 4..input.len() {
+        win1 += input[i-1] - input[i-4];
+        win2 += input[i] - input[i-3];
+
+        if win2 > win1 {
+            count+=1;
+        }
+        
+    }
+
+    println!("part 2 count = {}", count);
 }
