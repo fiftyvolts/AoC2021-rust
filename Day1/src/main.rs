@@ -40,7 +40,7 @@ fn part1(mut input :&[i32]) {
     println!("part1 count = {}", count);
 }
 
-fn part2(mut input :&[i32]) {
+fn part2(input :&[i32]) {
 
   
     let mut win1 = input[0] + input[1] + input[2];
