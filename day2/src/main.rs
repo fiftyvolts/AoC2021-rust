@@ -59,6 +59,18 @@ fn part1 (input: &Vec<Command>) {
     println!("part1 = {}", depth * dist);
 }
 
-fn part2(_input: &Vec<Command>) {
-    println!("part2 = {}", 0);
+fn part2(input: &Vec<Command>) {
+    let mut depth = 0;
+    let mut dist = 0;
+    let mut aim = 0;
+    for c in input {
+        match c {
+            Command::Forward(x) => {dist += x; depth += x * aim},
+            Command::Backward(x) => {dist -= x; depth -= x * aim},
+            Command::Up(y) => aim -= y,
+            Command::Down(y) => aim += y
+        }
+    }
+
+    println!("part2 = {}", depth*dist);
 }
