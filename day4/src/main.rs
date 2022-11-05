@@ -66,6 +66,7 @@ impl Display for Board {
         Ok(())
     }
 }
+
 fn part1(input : &String) {
     let mut lines = input.lines().map(|x| String::from(x)).peekable();
     let nums : Vec<i32> = lines
@@ -107,6 +108,52 @@ fn part1(input : &String) {
     }
 }
 
-fn part2(_input: &String) {
+fn part2(input: &String) {
+    let mut lines = input.lines().map(|x| String::from(x)).peekable();
+    let nums : Vec<i32> = lines
+                    .next()
+                    .unwrap()
+                    .split(",")
+                    .map(|x| i32::from_str_radix(x, 10).unwrap())
+                    .collect();
+    
+    let mut boards = Vec::new();
+    while lines.peek().is_some() {
+        lines.next();
+        let mut b = Board{sq: [[Square {v: 0, k: false};5];5]};
+        for i in 0..5 {
+            let mut j = 0;
+            for col in lines.next().unwrap().split_whitespace() {
+                b.sq[i][j].v = i32::from_str_radix(col, 10).unwrap();
+                j+=1;
+            }
+        }
 
+        boards.push(b);
+    }
+
+    let mut remaining = (0..(boards.len())).collect::<Vec<usize>>();
+    let mut next : Vec<usize> = Vec::new();
+
+    for n in nums {
+        let count = remaining.len();
+        for i in remaining {
+            let b = &mut boards[i];
+            for r in &mut b.sq {
+                for mut c in r {
+                    if c.v == n {
+                        c.k = true;
+                    }
+                } 
+            }
+            if !b.check() {
+                next.push(i);
+            } else if count == 1 {
+                println!("{}", b.score(n));
+                return;
+            }
+        }
+         remaining = next;
+            next = Vec::new();
+    }
 }
