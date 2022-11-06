@@ -15,6 +15,7 @@ fn input_txt() -> String {
 fn main() {
     let input = input_txt();
     part1(&input);
+    part2(&input);
 }
 
 fn part1(input: &str) {
@@ -35,4 +36,20 @@ fn part1(input: &str) {
     }
 
     println!("{}", fish.len())
+}
+
+fn part2(input: &str) {
+    let mut days: [i64;9] =[0;9];
+    for i in input.split(",").map(|d| d.parse::<usize>().unwrap()) {
+        days[i]+=1;
+    }
+    for _ in 0..256 {
+        let babies = days[0];
+        for day in 1..9 {
+            days[day-1] = days[day];
+        }
+        days[6]+=babies;
+        days[8]=babies;
+    }
+    println!("{}", days.iter().sum::<i64>());
 }
