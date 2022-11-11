@@ -19,8 +19,7 @@ fn input_txt() -> String {
 
 fn main() {
     let input = input_txt();
-    part1(&input);
-    //part2(&input);
+    part12(&input);
 }
 
 type Signal = u8;
@@ -105,6 +104,13 @@ impl AsSignal for &str {
     }
 }
 
+
+impl AsSignal for String {
+    fn as_signal(&self) -> Result<Signal, SignalParseErr> {
+        self.as_str().as_signal()
+    }
+}
+
 impl AsSignal for u32 {
     fn as_signal(&self) -> Result<Signal, SignalParseErr> {
         match DIGIT_MAP.get(self) {
@@ -113,6 +119,7 @@ impl AsSignal for u32 {
         }
     }
 }
+
 
 fn dump_cross_map(cross_map: &HashMap<Signal, Signal>) {
     let mut pairs = cross_map
@@ -130,8 +137,9 @@ fn dump_cross_map(cross_map: &HashMap<Signal, Signal>) {
     );
 }
 
-fn part1(input: &str) {
+fn part12(input: &str) {
     let mut counter = 0;
+    let mut sum = 0u32;
     for line in input.lines() {
         let (readout, display) = {
             let pair: Vec<&str> = line.split("|").collect();
@@ -180,14 +188,15 @@ fn part1(input: &str) {
 
         dump_cross_map(&cross_map);
 
-        for d in display.split_whitespace() {
-            let x = *cross_map.get(&d.as_signal().unwrap()).unwrap();
-            if x == 1 || x == 4 || x == 7 || x == 8 {
+        let mapped_display = display.split_whitespace().map(|s| *cross_map.get(&s.as_signal().unwrap()).unwrap()).collect::<Vec<Signal>>();
+
+        for d in &mapped_display {
+            if *d == 1 || *d == 4 || *d == 7 || *d == 8 {
                 counter += 1;
             }
         }
-    }
-    println!("{}", counter);
-}
+        sum += mapped_display[0] as u32 * 1000 + mapped_display[1] as u32 * 100 + mapped_display[2] as u32 * 10 + mapped_display[3] as u32;
 
-fn part2(_input: &str) {}
+    }
+    println!("{}, {}", counter, sum);
+}
