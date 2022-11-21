@@ -12,11 +12,16 @@ fn input_txt() -> String {
 
 fn main() {
     let input = input_txt();
-    part12(&input);
-}
 
+    part12(&input, 1);
+    part12(&input, 2);
+}
+#[derive(Debug)]
 struct Node {
     id: String,
+    small: bool,
+    termination: bool,
+    visit_count: i32,
     peers: Vec<String>,
 }
 
@@ -52,8 +57,20 @@ impl Graph {
         }
     }
 
-    fn get<'a>(&'a self, id: &str) -> &'a Node {
+    fn get(&self, id: &str) -> &Node {
         &self.0.get(id).unwrap()
+    }
+
+    fn get_mut(&mut self, id: &str) -> &mut Node {
+        self.0.get_mut(id).unwrap()
+    }
+    fn max_small_visits(&self) -> i32 {
+        self.0
+            .iter()
+            .filter(|e| e.1.small)
+            .map(|e| e.1.visit_count)
+            .max()
+            .unwrap()
     }
 }
 
@@ -99,43 +116,49 @@ impl From<String> for Graph {
 
 impl Node {
     fn new(id: String) -> Node {
+        let small = id.to_lowercase() == id;
+        let termination : bool = id.eq("start") || id.eq("end");
         Node {
-            id: id,
-            peers: Vec::new(),
+            id,
+            small,
+            termination,
+            visit_count: 0,
+            peers: vec![],
         }
     }
 }
 
-fn part12(input: &str) {
-
+fn part12(input: &str, small_visits: i32) {
     let path: &mut Vec<String> = &mut vec![];
-    let mut paths: &mut Vec<Vec<String>> = &mut vec![];
+    let paths: &mut Vec<Vec<String>> = &mut vec![];
     let graph = &mut Graph::from(String::from(input));
-
-    (_, paths, _) = visit(path, paths, graph, graph.start().id.clone());
-    println!("{}",paths.len());
+    visit(path, paths, graph, graph.start().id.clone(), small_visits);
+    println!("{}", paths.len());
 }
 
-fn visit<'a>(
-    mut path: &'a mut Vec<String>,
-    mut paths: &'a mut Vec<Vec<String>>,
-    mut graph: &'a mut Graph,
+fn visit(
+    path: &mut Vec<String>,
+    paths: &mut Vec<Vec<String>>,
+    graph: &mut Graph,
     id: String,
-) -> (&'a mut Vec<String>, &'a mut Vec<Vec<String>>, &'a mut Graph) {
+    small_visits: i32,
+) {
     path.push(id.clone());
+    graph.get_mut(&id).visit_count += 1;
 
     if id == graph.end().id {
         paths.push(path.clone());
     } else {
         let peers = graph.get(&id).peers.clone();
         for peer in peers {
-            if !(peer.to_lowercase() == *peer && path.contains(&peer)) {
-                (path, paths, graph) = visit(path, paths, graph, peer);
+            let pn = graph.get(&peer);
+            
+            if !pn.small || pn.visit_count < 1 || (!pn.termination && graph.max_small_visits() < small_visits) {
+                visit(path, paths, graph, peer, small_visits);
             }
         }
     }
 
+    graph.get_mut(&id).visit_count -= 1;
     path.pop();
-
-    (path, paths, graph)
 }
