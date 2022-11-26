@@ -10,6 +10,6 @@ fn main() {
     let input = input_txt();
     part12(&input);
 }
-fn part12(input: &String) {
+fn part12(_input: &String) {
     
 }
