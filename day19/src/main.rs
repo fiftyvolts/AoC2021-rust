@@ -2,8 +2,10 @@
 extern crate lazy_static;
 
 use std::{
-    collections::HashMap,
-    io::{stdin, Read},
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    io::Read,
+    env, fs::File
 };
 
 struct PermutationIter {
@@ -52,18 +54,21 @@ lazy_static! {
     static ref FACING: Vec<Vec<usize>> = PermutationIter::new(3).collect();
 }
 
-fn input_txt() -> String {
+fn input_txt() -> std::io::Result<String> {
     let mut buf = String::new();
-    stdin().read_to_string(&mut buf).ok();
-    buf
+    let in_file = env::args().nth(1).unwrap();
+    println!("{}", in_file);
+    File::open(in_file)?.read_to_string(&mut buf).ok();
+    Ok(buf)
 }
 
-fn main() {
-    let input = input_txt();
+fn main() -> std::io::Result<()> {
+    let input = input_txt()?;
     part1(&input);
+    Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Point {
     p: [i64; 3],
 }
@@ -74,7 +79,7 @@ impl Point {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq)]
 struct Delta {
     ds: [i64; 3],
 }
@@ -82,7 +87,7 @@ struct Delta {
 #[derive(Debug, Clone, Copy)]
 struct Ray {
     start: Point,
-    end: Point,
+    _end: Point,
     delta: Delta,
 }
 
@@ -114,19 +119,111 @@ impl Delta {
         None
     }
 }
+
 impl PartialEq for Delta {
     fn eq(&self, other: &Self) -> bool {
         self.reckon(*other).is_some()
     }
 }
 
-#[derive(Debug)]
-struct Scanner {
-    beacons: Vec<Point>,
-    rays: HashMap<(usize, usize), Ray>,
+impl Hash for Delta {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.ds[0] * self.ds[0] + self.ds[1] * self.ds[1] + self.ds[2] * self.ds[2]).hash(state);
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+struct Scanner {
+    beacons: Vec<Point>,
+    beacon_set: HashSet<Point>,
+    rays: HashMap<Delta, Vec<Ray>>,
+}
+
+impl Scanner {
+    fn new() -> Self {
+        Scanner {
+            beacons: vec![],
+            beacon_set: HashSet::new(),
+            rays: HashMap::new(),
+        }
+    }
+
+    fn add_beacon(&mut self, added: Point) {
+        if self.beacon_set.contains(&added) {
+            return;
+        }
+
+        for beacon in &self.beacons {
+            let r = Ray::new(*beacon, added);
+            let for_d = self.rays.entry(r.delta).or_insert(vec![]);
+            for_d.push(r);
+        }
+        self.beacons.push(added);
+        self.beacon_set.insert(added);
+    }
+
+    fn match_points(&self, from: &Scanner, limit: usize) -> (usize, Option<Translation>) {
+        let consensus_tx_opt = self.txfn(&from);
+        if consensus_tx_opt.is_none() {
+            return (0, None);
+        }
+
+        let tx = consensus_tx_opt.unwrap();
+        let mut common_count = 0usize;
+        for b in &from.beacons {
+            if self.beacon_set.contains(&tx.translate(*b)) {
+                common_count += 1;
+                if common_count >= limit {
+                    break;
+                }
+            }
+        }
+        return (common_count, consensus_tx_opt);
+    }
+
+    fn extend(&mut self, src: &Scanner) {
+        let tx = self.txfn(&src).unwrap();
+        for b in &src.beacons {
+            self.add_beacon(tx.translate(*b));
+        }
+    }
+
+    fn txfn(&self, from: &Scanner) -> Option<Translation> {
+        let mut txs: HashMap<Translation, usize> = HashMap::new();
+
+        for (delta, rays1) in &self.rays {
+            if !from.rays.contains_key(delta) {
+                continue; // not present in other scanner
+            }
+
+            let rays2 = from.rays.get(delta).unwrap();
+
+            //at this point, there could be multiple rays with the same delta but on in
+            //one scanner range and one in the other, so we'll generate the tx and
+            //count how many times the same tx shows up to have a consensus
+            for r1 in rays1 {
+                for r2 in rays2 {
+                    let tx = Translation::new(*r1, *r2);
+                    txs.entry(tx)
+                    .and_modify(|c| {
+                        *c += 1;
+                    })
+                    .or_insert(1);
+                }
+            }
+        }
+        let mut sorted_tx: Vec<(Translation, usize)> =
+            txs.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        sorted_tx.sort_by(|a, b| b.1.cmp(&a.1));
+        if sorted_tx.len() == 0 || (sorted_tx.len() > 1 && sorted_tx[0].1 == sorted_tx[1].1) {
+            return None;
+        }
+
+        Some(sorted_tx[0].0)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 struct Translation {
     offset: Point,
     ori: [usize; 3],
@@ -213,7 +310,7 @@ impl Ray {
 
         Ray {
             start,
-            end,
+            _end: end,
             delta: Delta {
                 ds: [
                     end.p[0] - start.p[0],
@@ -223,6 +320,10 @@ impl Ray {
             },
         }
     }
+
+    fn is_cardinal(&self) -> bool {
+        self.delta.ds.iter().filter(|x| **x == 0).count() >= 2
+    }
 }
 
 fn part1(input: &String) {
@@ -231,9 +332,7 @@ fn part1(input: &String) {
     let mut lines = input.lines();
     while let Some(line) = lines.next() {
         if line.starts_with("---") {
-            let mut beacons: Vec<Point> = vec![];
-            let mut rays: HashMap<(usize, usize), Ray> = HashMap::new();
-
+            let mut scanner = Scanner::new();
             while let Some(line) = lines.next() {
                 if line.is_empty() {
                     break;
@@ -243,20 +342,42 @@ fn part1(input: &String) {
                     .split(",")
                     .map(|d| i64::from_str_radix(d, 10).unwrap())
                     .collect();
-                beacons.push(Point {
+                scanner.add_beacon(Point {
                     p: [d[0], d[1], d[2]],
                 });
             }
+            scanners.push(scanner);
+        }
+    }
 
-            for i in 0..beacons.len() {
-                for j in 0..beacons.len() {
-                    if i == j {
-                        continue;
-                    }
-                    rays.insert((i, j), Ray::new(beacons[i], beacons[j]));
-                }
+    let mut full_scanner = scanners[0].clone();
+    let mut included: HashSet<usize> = HashSet::from([0]);
+    let mut to_pair: Vec<usize> = vec![0];
+
+
+    while !to_pair.is_empty() {
+        let i = to_pair.pop().unwrap();
+        let s1 = &scanners[i];
+        
+        for j in 0..scanners.len() {
+            if i == j {
+                continue;
             }
-            scanners.push(Scanner { beacons, rays });
+
+            if included.contains(&j) {
+                continue; // we alredy mapped this one, don't repeat
+            }
+
+            let s2 = &scanners[j];
+
+            let (common_count, _) = s1.match_points(s2, usize::MAX);
+            if common_count < 12 {
+                continue;
+            }
+            
+            full_scanner.extend(&s2);
+            included.insert(j);
+            to_pair.push(j);
         }
     }
 }
