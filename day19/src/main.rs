@@ -2,7 +2,7 @@
 extern crate lazy_static;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     hash::Hash,
     io::Read,
     env, fs::File
@@ -247,6 +247,10 @@ impl Translation {
         }
     }
 
+    fn identity() -> Self {
+        Translation { offset: Point{p: [0, 0, 0]}, ori: [0,1,2], flip: 0 }
+    }
+
     fn translate(&self, p: Point) -> Point {
         let flipx = if self.flip & 1 == 0 { 1 } else { -1 };
         let flipy = if self.flip & 2 == 0 { 1 } else { -1 };
@@ -350,13 +354,15 @@ fn part1(input: &String) {
         }
     }
 
-    let mut full_scanner = scanners[0].clone();
-    let mut included: HashSet<usize> = HashSet::from([0]);
-    let mut to_pair: Vec<usize> = vec![0];
-
+ 
+    let mut txs = HashMap::from([(0,  vec![(0, Translation::identity())])]);
+    let mut found = scanners[0].beacon_set.clone();
+    let mut tracker = scanners[0].beacons.clone();
+    let mut included = HashSet::from([0]);
+    let mut to_pair = VecDeque::from([0]);
 
     while !to_pair.is_empty() {
-        let i = to_pair.pop().unwrap();
+        let i = to_pair.pop_front().unwrap();
         let s1 = &scanners[i];
         
         for j in 0..scanners.len() {
@@ -365,19 +371,43 @@ fn part1(input: &String) {
             }
 
             if included.contains(&j) {
-                continue; // we alredy mapped this one, don't repeat
+                continue;
             }
 
             let s2 = &scanners[j];
 
-            let (common_count, _) = s1.match_points(s2, usize::MAX);
-            if common_count < 12 {
-                continue;
+            // let (common_count, _) = s1.match_points(s2, usize::MAX);
+            // if common_count < 12 {
+            //     continue; // not enough poins
+            // }
+            
+            let tx = match s1.txfn(s2) {
+                Some(x) => x,
+                None => continue
+            };
+            let mut pipeline = txs.get(&i).unwrap().clone();
+            pipeline.push((j, tx));
+            for mut b in s2.beacons.iter().cloned() {
+                for (_, step) in pipeline.iter().rev() {
+                    b = step.translate(b);
+                }
+                found.insert(b);
+                tracker.push(b);
             }
             
-            full_scanner.extend(&s2);
+            txs.insert(j, pipeline);
             included.insert(j);
-            to_pair.push(j);
+            to_pair.push_back(j);
         }
     }
+
+    let mut pipes : Vec<usize> = txs.keys().cloned().collect();
+    pipes.sort();
+    for pipe in pipes {
+        println!("{}",txs.get(&pipe).unwrap().iter().rev().map({|(seg,_)| seg.to_string()}).collect::<Vec<String>>().join(", "));
+    }
+    let final_unique: HashSet<Point> = HashSet::from_iter(tracker.iter().cloned());
+ 
+    println!("{}", found.len());
+    println!("{}", final_unique.len());
 }

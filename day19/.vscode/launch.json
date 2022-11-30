@@ -7,14 +7,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Launch Binary",
-            "program": "${workspaceFolder}/target/debug/day19",
-            "args": ["input1.txt"],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug executable 'day19'",
             "cargo": {
                 "args": [
@@ -27,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["input1.txt"],
             "cwd": "${workspaceFolder}"
         },
         {
